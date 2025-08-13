@@ -34,4 +34,4 @@ async def kill_playback(interrupted_speech: threading.Event, playback_task: asyn
 
     # Let it process cancellation & cleanup
     with contextlib.suppress(asyncio.CancelledError):
-        await playback_task   # optionally wrap in wait_for(...) if you want a timeout
+        await playback_task
