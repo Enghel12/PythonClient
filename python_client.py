@@ -9,22 +9,12 @@ from record_audio import AudioRecorder
 from play_audio import playback_loop
 from update_server import monitor_conversation
 from interruption_checker import handle_interruptions
-from interruption_manager import mid_speech_interruption
+from interruption_manager import mid_speech_interruption, kill_playback
 
 load_dotenv()
 token = os.getenv("CLIENT_TOKEN")
 headers = {"Authorization": f"Bearer {token}"}
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 📝 TO DO LIST — THE QUEST FOR FUNCTIONAL GRACE AND SYNCHRONY
-# ──────────────────────────────────────────────────────────────────────────────
-# 1. ✨ Use threading event to make sure audio stops from playing
-#    before starting the mid-speech interruption logic
-#
-# 2. 🛑 Make sure playback always stops during mid-speech interruption
-#    and that it can later start again cleanly
-# ──────────────────────────────────────────────────────────────────────────────
 
 
 async def client():
@@ -35,6 +25,7 @@ async def client():
 
     audio_during_response = bytearray()  # Stores user audio while A.I. is responding
     interrupted_speech = threading.Event()  # Stops current audio response if user interrupts
+    audio_stopped  = threading.Event()  # Tracks if audio is stopped during mid-speech interruption
     client_id = ""  # Saved client ID for the duration of current session
 
     async with connect(server_url, additional_headers=headers) as ws:
@@ -44,7 +35,8 @@ async def client():
 
         # Start non-interruptible tasks
         send_task = asyncio.create_task(send_audio(ws,recorder.get_audio_chunks(),audio_during_response,hearing_audio,interrupted_speech))
-        mid_speech_task = asyncio.create_task(mid_speech_interruption(interrupted_speech,sentence_queue,hearing_audio))
+        mid_speech_task = asyncio.create_task(mid_speech_interruption(interrupted_speech,sentence_queue,hearing_audio, audio_stopped))
+
 
         with recorder.start_stream():
             print("Recording... Press Ctrl+C to stop.")
@@ -56,7 +48,8 @@ async def client():
                     start_conversation_task = asyncio.create_task(start_conversation_reader(ws, sentence_queue, hearing_audio))
                     monitor_task = asyncio.create_task(monitor_conversation(hearing_audio, id_queue, interrupted_speech))
                     interruption_task = asyncio.create_task(handle_interruptions(hearing_audio, interrupted_speech, audio_during_response))
-                    playback_task = asyncio.create_task(playback_loop(sentence_queue, hearing_audio, interrupted_speech))
+                    playback_task = asyncio.create_task(playback_loop(sentence_queue, hearing_audio, interrupted_speech, audio_stopped))
+                    nuke_playback = asyncio.create_task(kill_playback(interrupted_speech, playback_task))
 
                     # Await the 4 interruptible tasks until they all exit due to a mid-speech interruption
                     await asyncio.gather(start_conversation_task,monitor_task,interruption_task,playback_task)

@@ -67,6 +67,5 @@ async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_a
 
         # If user interrupted mid-speech(mid conversation or later)
         if msg == INTERRUPTED_MID_SPEECH or close_conversation_reader.is_set():
-            await clear_previous_audio(sentence_queue)  # Clear audio garbage
             print("Closing outer message receiver..")  # Clear leftover audio
             break
