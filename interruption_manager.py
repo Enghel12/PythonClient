@@ -31,8 +31,9 @@ async def kill_playback(interrupted_speech: threading.Event, playback_task: asyn
 
     # Nuke playback because it does not play nice
     playback_task.cancel()
-    print("Playback got nuked!")
 
     # Let it process cancellation & cleanup
     with contextlib.suppress(asyncio.CancelledError):
         await playback_task
+
+    print("Playback got nuked!")
