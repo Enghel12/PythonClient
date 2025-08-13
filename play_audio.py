@@ -41,7 +41,7 @@ async def playback_loop(sentence_queue: asyncio.Queue, hearing_audio: asyncio.Ev
 
     while True:
         sentence = await sentence_queue.get()  # Wait for each audio
-        print("Playback ran..")
+
         # If we got a new audio and user did not interrupt
         if sentence is not None:
             # If this is the start of the audio response, inform client
