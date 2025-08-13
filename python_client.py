@@ -53,7 +53,7 @@ async def client():
 
                     # Await the 4 interruptible tasks until they all exit due to a mid-speech interruption
                     await asyncio.gather(start_conversation_task, monitor_task, interruption_task, nuke_playback)
-                    print("Reached this code..")
+                    print("All coroutines stopped, starting cycle again..")
             except KeyboardInterrupt:
                 print("Streaming stopped by user.")
 
