@@ -11,7 +11,7 @@ def play_audio(full_audio: bytes, interrupted_speech: threading.Event, audio_sto
     # Quick exit if user interrupted
     if interrupted_speech.is_set():
         audio_stopped.set()
-        print("Stopping audio..")
+        print("Audio stopping..")
         return
 
     # Decode and normalize each audio
@@ -27,7 +27,7 @@ def play_audio(full_audio: bytes, interrupted_speech: threading.Event, audio_sto
             # If user interrupted while A.I. was talking
             if interrupted_speech.is_set():
                 audio_stopped.set()
-                print("Stopping audio...")
+                print("Audio stopping..")
                 return  # stop current audio from playing
             stream.write(samples[start : start + block_size])
 
@@ -36,25 +36,27 @@ def play_audio(full_audio: bytes, interrupted_speech: threading.Event, audio_sto
 async def playback_loop(sentence_queue: asyncio.Queue, hearing_audio: asyncio.Event, interrupted_speech: threading.Event, audio_stopped: threading.Event):
     sentences = []  # Stores each audio sentence from server
     loop = asyncio.get_running_loop()  # Get the event loop
-    INTERRUPTED_MID_SPEECH = b"[interrupted_mid_speech@@]"
 
+    try:
+        while True:
+            sentence = await sentence_queue.get()  # Wait for each audio (cancellable await)
 
-    while True:
-        sentence = await sentence_queue.get()  # Wait for each audio
+            # If we got a new audio and user did not interrupt
+            if sentence is not None:
+                # If this is the start of the audio response, inform client
+                if not hearing_audio.is_set():
+                    hearing_audio.set()
 
-        # If we got a new audio and user did not interrupt
-        if sentence is not None:
-            # If this is the start of the audio response, inform client
-            if not hearing_audio.is_set():
-                hearing_audio.set()
+                # Launch a thread and play every audio sentence
+                await loop.run_in_executor(None, play_audio, sentence, interrupted_speech, audio_stopped)
 
-            # Launch a thread and play every audio sentence
-            await loop.run_in_executor(None, play_audio, sentence, interrupted_speech, audio_stopped)
+            # If user heard full audio without interrupting
+            if sentence is None:
+                # Mark that client heard the full audio response
+                if hearing_audio.is_set():
+                    hearing_audio.clear()
 
-
-        # If user heard full audio without interrupting
-        if sentence is None:
-            # 2.Mark that client heard the full audio response
-            if hearing_audio.is_set():
-                hearing_audio.clear()
-
+    except asyncio.CancelledError:
+        # Handle coroutine cancellation and clean up
+        print("4.Playback_loop got cancelled..")
+        raise

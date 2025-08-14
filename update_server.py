@@ -17,26 +17,28 @@ async def update_server(conversation_update: str, client_id: str):
         response = await client.post(server_endpoint, json=conversation)
 
 
-async def monitor_conversation(hearing_audio: asyncio.Event, id_queue: asyncio.Queue,
-                               interrupted_speech: threading.Event):
+# Used to monitor when audio starts/finishes and notify the server
+async def monitor_conversation(hearing_audio: asyncio.Event, id_queue: asyncio.Queue):
     inform_server = False
     client_id = await id_queue.get()  # Pause until ID is ready
     AUDIO_PLAYING = "[audio_playing@@]"
     AUDIO_FINISHED = "[audio_finished@@]"
 
-    while True:
-        if interrupted_speech.is_set():
-            print("Closing server updater..")
-            break
+    try:
+        while True:
+            # If user starts hearing audio
+            if hearing_audio.is_set() and not inform_server:
+                await update_server(AUDIO_PLAYING, client_id)  # Tell server audio started playing
+                inform_server = True
 
-        # If user starts hearing audio
-        if hearing_audio.is_set() and not inform_server:
-            await update_server(AUDIO_PLAYING, client_id)  # Tell server audio started playing
-            inform_server = True
+            # If audio response finished without user interrupting
+            elif not hearing_audio.is_set() and inform_server:
+                await update_server(AUDIO_FINISHED, client_id)  # Tell server audio finished
+                inform_server = False
 
-        # If audio response finished without user interrupting
-        elif not hearing_audio.is_set() and inform_server:
-            await update_server(AUDIO_FINISHED, client_id)  # Tell server audio finished
-            inform_server = False
+            await asyncio.sleep(0.01)  # Yield control for a bit
 
-        await asyncio.sleep(0.01)  # Yield control for a bit
+    except asyncio.CancelledError:
+        # Handle coroutine cancellation and clean up
+        print("3.Update server got canceled..")
+        raise

@@ -8,13 +8,11 @@ from send_audio import send_audio
 from record_audio import AudioRecorder
 from play_audio import playback_loop
 from update_server import monitor_conversation
-from interruption_checker import handle_interruptions
-from interruption_manager import mid_speech_interruption, kill_playback
+from interruption_manager import  handle_interruptions, nuke_all
 
 load_dotenv()
 token = os.getenv("CLIENT_TOKEN")
 headers = {"Authorization": f"Bearer {token}"}
-
 
 
 async def client():
@@ -33,9 +31,8 @@ async def client():
         client_id = await handle_id(ws, id_queue)  # Get client ID
         recorder = AudioRecorder()  # Used to read and return user audio
 
-        # Start non-interruptible tasks
-        send_task = asyncio.create_task(send_audio(ws,recorder.get_audio_chunks(),audio_during_response,hearing_audio,interrupted_speech))
-        mid_speech_task = asyncio.create_task(mid_speech_interruption(interrupted_speech,sentence_queue,hearing_audio, audio_stopped))
+        # Non-interruptible task responsible for sending continuous audio to server
+        send_task = asyncio.create_task(send_audio(ws, recorder.get_audio_chunks(), audio_during_response, hearing_audio, interrupted_speech)) # Sends continuous audio to server
 
 
         with recorder.start_stream():
@@ -45,15 +42,17 @@ async def client():
                 while True:
                     print("Interruptible coroutines started..")
                     # Start all interruptible tasks
-                    start_conversation_task = asyncio.create_task(start_conversation_reader(ws, sentence_queue, hearing_audio))
-                    monitor_task = asyncio.create_task(monitor_conversation(hearing_audio, id_queue, interrupted_speech))
                     interruption_task = asyncio.create_task(handle_interruptions(hearing_audio, interrupted_speech, audio_during_response))
+                    start_conversation_task = asyncio.create_task(start_conversation_reader(ws, sentence_queue, hearing_audio))
+                    monitor_task = asyncio.create_task(monitor_conversation(hearing_audio, id_queue))
                     playback_task = asyncio.create_task(playback_loop(sentence_queue, hearing_audio, interrupted_speech, audio_stopped))
-                    nuke_playback = asyncio.create_task(kill_playback(interrupted_speech, playback_task))
 
-                    # Await the 4 interruptible tasks until they all exit due to a mid-speech interruption
-                    await asyncio.gather(start_conversation_task, monitor_task, interruption_task, nuke_playback)
-                    print("All coroutines stopped, starting cycle again..")
+                    await asyncio.to_thread(interrupted_speech.wait)  # Pause here until each mid-speech interruption
+
+                    # Kill all coroutines during mid-speech interruption
+                    await nuke_all(start_conversation_task, monitor_task, playback_task)
+                    await asyncio.sleep(1000)
+
             except KeyboardInterrupt:
                 print("Streaming stopped by user.")
 

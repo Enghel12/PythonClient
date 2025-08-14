@@ -2,38 +2,36 @@ import asyncio
 import threading
 from utilities import clear_previous_audio
 import contextlib
-
-async def reset(interrupted_speech: threading.Event, sentence_queue: asyncio.Queue, hearing_audio:asyncio.Event, audio_stopped: threading.Event):
-    # Clear and reset everything after a mid-speech interruption
-    await clear_previous_audio(sentence_queue)
-    hearing_audio.clear()
-    interrupted_speech.clear()
-    audio_stopped.clear()
-    print("Reset successful!")
+from perform_vad import perform_vad
 
 
-# Waits for a mid-speech interruption to take place
-async def mid_speech_interruption(interrupted_speech: threading.Event, sentence_queue: asyncio.Queue, hearing_audio:asyncio.Event, audio_stopped: threading.Event):
+# Detects if the user is rude and interrupts A.I. mid-sentence
+async def handle_interruptions(hearing_audio: asyncio.Event, interrupted_speech: threading.Event, audio_during_response: bytearray):
+    sample_rate = 16000
+    loop = asyncio.get_running_loop()
 
     while True:
-        # If user interrupted mid-speech
-        if interrupted_speech.is_set():
-            await asyncio.to_thread(audio_stopped.wait)  # Wait until audio completely stops
-            await reset(interrupted_speech, sentence_queue, hearing_audio, audio_stopped)  # Reset flags
+        await asyncio.sleep(0.3)  # Look for interruptions every 300 ms
 
-        await asyncio.sleep(0.01)  # Yield control every 1 ms
+        # If A.I. is talking to the user, look for mid-speech interruptions
+        if hearing_audio.is_set() and not interrupted_speech.is_set():
+            interrupted = await loop.run_in_executor(None, perform_vad, bytes(audio_during_response), sample_rate)
+
+            if interrupted:
+                audio_during_response.clear()  # Clear audio recorded during mid-speech interruption
+                interrupted_speech.set()  # Set thread event to stop audio from playing
+                print("1.Interruption checker is closing itself..")
+                break
 
 
-# Used to forcefully stop Playback during a mid-speech interruption
-async def kill_playback(interrupted_speech: threading.Event, playback_task: asyncio.Task):
-    # Wait until user interrupts mid-speech
-    await asyncio.to_thread(interrupted_speech.wait)
+# Used to externally cancel all coroutines during mid-speech interruptions
+async def nuke_all(*tasks: asyncio.Task):
 
-    # Nuke playback because it does not play nice
-    playback_task.cancel()
+    # For each task passed
+    for task in tasks:
+        task.cancel()  # Cancel the current task
 
-    # Let it process cancellation & cleanup
-    with contextlib.suppress(asyncio.CancelledError):
-        await playback_task
-
-    print("Playback got nuked!")
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
