@@ -46,7 +46,7 @@ async def conversation_reader(ws, sentence_queue: asyncio.Queue, audio_buffer: b
         raise
     finally:
         audio_buffer.clear()
-        print("Conversation_reader: STOP (cleanup done)")
+        print("Conversation_reader: STOP")
 
 
 async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_audio: asyncio.Event):
