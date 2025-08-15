@@ -49,5 +49,3 @@ async def clean_up(interrupted_speech: threading.Event, audio_stopped: threading
     # 2.Empty buffers and queues
     audio_during_response.clear()  # Clear audio recorded during mid-speech interruption
     await clear_previous_audio(sentence_queue)  # Clear the queue used to pass audio sentences
-
-    await asyncio.sleep(0.5)

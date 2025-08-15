@@ -41,7 +41,7 @@ async def client():
 
             try:
                 while True:
-
+                    print("New cycle started!")
                     # Start all interruptible tasks
                     interruption_task = asyncio.create_task(handle_interruptions(hearing_audio, interrupted_speech, audio_during_response))
                     start_conversation_task = asyncio.create_task(start_conversation_reader(ws, sentence_queue, hearing_audio))
