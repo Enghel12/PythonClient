@@ -18,9 +18,8 @@ async def update_server(conversation_update: str, client_id: str):
 
 
 # Used to monitor when audio starts/finishes and notify the server
-async def monitor_conversation(hearing_audio: asyncio.Event, id_queue: asyncio.Queue):
+async def monitor_conversation(hearing_audio: asyncio.Event, client_id: str):
     inform_server = False
-    client_id = await id_queue.get()  # Pause until ID is ready
     AUDIO_PLAYING = "[audio_playing@@]"
     AUDIO_FINISHED = "[audio_finished@@]"
 

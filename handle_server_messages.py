@@ -2,12 +2,11 @@ import asyncio
 from utilities import handle_json, clear_previous_audio
 
 
-async def handle_id(ws, id_queue: asyncio.Queue):
+async def handle_id(ws):
     server_response = await ws.recv()  # Get first server message (client ID)
     data = handle_json(server_response)  # Parse JSON
     client_id = data.get("session_id")  # Get client ID
     print(f"ID: {client_id}")  # Make sure first message is client ID
-    await id_queue.put(client_id)  # Place ID in queue
     return client_id
 
 
@@ -57,7 +56,7 @@ async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_a
             msg = await ws.recv()
 
             if msg == START_OF_CONVERSATION:
-                print("Conversation turn changed:")
+                print("🗣️ Conversation turn changed:")
                 await clear_previous_audio(sentence_queue)
                 audio_buffer = bytearray()
 

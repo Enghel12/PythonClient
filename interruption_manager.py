@@ -18,7 +18,6 @@ async def handle_interruptions(hearing_audio: asyncio.Event, interrupted_speech:
 
             # If user interrupted mid-speech
             if interrupted:
-                audio_during_response.clear()  # Clear audio recorded during mid-speech interruption
                 interrupted_speech.set()  # Set thread event to stop audio from playing
                 print("🚨 MID-SPEECH INTERRUPTION DETECTED 🚨")
                 break
@@ -35,3 +34,20 @@ async def nuke_all(*tasks: asyncio.Task):
             await task
         except asyncio.CancelledError:
             pass
+
+
+# Used to clear flags, reset buffers and do a complete clean-up during mid-speech interruptions
+async def clean_up(interrupted_speech: threading.Event, audio_stopped: threading.Event, hearing_audio: asyncio.Event, audio_during_response: bytearray, sentence_queue: asyncio.Queue):
+    # Detect properly when audio stopped playing using a separate thread
+    await asyncio.to_thread(audio_stopped.wait)
+
+    # 1.Clear all flags to prepare for the new conversation turn
+    interrupted_speech.clear()
+    audio_stopped.clear()
+    hearing_audio.clear()
+
+    # 2.Empty buffers and queues
+    audio_during_response.clear()  # Clear audio recorded during mid-speech interruption
+    await clear_previous_audio(sentence_queue)  # Clear the queue used to pass audio sentences
+
+    await asyncio.sleep(10000)
