@@ -11,7 +11,7 @@ def play_audio(full_audio: bytes, interrupted_speech: threading.Event, audio_sto
     # Quick exit if user interrupted
     if interrupted_speech.is_set():
         audio_stopped.set()
-        print("Audio stopping..")
+        print("🔇 Audio stopping.. 🔇")
         return
 
     # Decode and normalize each audio
@@ -27,7 +27,7 @@ def play_audio(full_audio: bytes, interrupted_speech: threading.Event, audio_sto
             # If user interrupted while A.I. was talking
             if interrupted_speech.is_set():
                 audio_stopped.set()
-                print("Audio stopping..")
+                print("🔇 Audio stopping.. 🔇")
                 return  # stop current audio from playing
             stream.write(samples[start : start + block_size])
 
@@ -58,5 +58,5 @@ async def playback_loop(sentence_queue: asyncio.Queue, hearing_audio: asyncio.Ev
 
     except asyncio.CancelledError:
         # Handle coroutine cancellation and clean up
-        print("4.Playback_loop got cancelled..")
+        print("3.Playback_loop got cancelled..")
         raise

@@ -1,7 +1,6 @@
 import asyncio
 import threading
 from utilities import clear_previous_audio
-import contextlib
 from perform_vad import perform_vad
 
 
@@ -17,10 +16,11 @@ async def handle_interruptions(hearing_audio: asyncio.Event, interrupted_speech:
         if hearing_audio.is_set() and not interrupted_speech.is_set():
             interrupted = await loop.run_in_executor(None, perform_vad, bytes(audio_during_response), sample_rate)
 
+            # If user interrupted mid-speech
             if interrupted:
                 audio_during_response.clear()  # Clear audio recorded during mid-speech interruption
                 interrupted_speech.set()  # Set thread event to stop audio from playing
-                print("1.Interruption checker is closing itself..")
+                print("🚨 MID-SPEECH INTERRUPTION DETECTED 🚨")
                 break
 
 

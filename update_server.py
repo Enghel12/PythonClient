@@ -40,5 +40,5 @@ async def monitor_conversation(hearing_audio: asyncio.Event, id_queue: asyncio.Q
 
     except asyncio.CancelledError:
         # Handle coroutine cancellation and clean up
-        print("3.Update server got canceled..")
+        print("2.Update server got canceled..")
         raise

@@ -42,11 +42,11 @@ async def conversation_reader(ws, sentence_queue: asyncio.Queue, audio_buffer: b
                 audio_buffer.extend(message)
 
     except asyncio.CancelledError:
-        print("Conversation_reader: CANCELLED")
+        print("💤 Conversation_reader: CANCELLED 💤")
         raise
     finally:
         audio_buffer.clear()
-        print("Conversation_reader: STOP")
+        print("⏹️ Conversation_reader: STOP ⏹️")
 
 
 async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_audio: asyncio.Event):
@@ -71,5 +71,5 @@ async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_a
                     inner.close()
 
     except asyncio.CancelledError:
-        print("2.Start conversation reader was cancelled..")
+        print("1.Start conversation reader was cancelled..")
         raise
