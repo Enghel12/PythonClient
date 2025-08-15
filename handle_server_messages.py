@@ -18,28 +18,35 @@ async def conversation_reader(ws, sentence_queue: asyncio.Queue, audio_buffer: b
     INTERRUPT_EARLY = b"[interrupted_early@@]"
     INTERRUPTED_MID_SPEECH = b"[interrupted_mid_speech@@]"
 
-    while True:
-        message = await ws.recv()  # Get each server message
+    print("conversation_reader: START")
 
-        # If user talked before hearing the audio response
-        if message == INTERRUPT_EARLY and not hearing_audio.is_set():
-            await clear_previous_audio(sentence_queue)
-            print("User interrupted early, dropping audio garbage..")
-            return
+    try:
+        while True:
+            # Cancellation-safe recv
+            message = await asyncio.wait_for(ws.recv(), None)
 
-        if message == PLAY_SENTENCE:
-            # Send the buffered audio sentence to Playback
-            await sentence_queue.put(bytes(audio_buffer))
-            audio_buffer.clear()
+            if message == INTERRUPT_EARLY and not hearing_audio.is_set():
+                await clear_previous_audio(sentence_queue)
+                print("Conversation_reader: Early interrupt, EXITING..")
+                return
 
-        elif message == FULL_AUDIO:
-            # Inform Playback that server finished sending audio
-            await sentence_queue.put(None)
-            return
+            if message == PLAY_SENTENCE:
+                await sentence_queue.put(bytes(audio_buffer))
+                audio_buffer.clear()
 
-        else:
-            # Accumulate audio bytes to get each sentence
-            audio_buffer.extend(message)
+            elif message == FULL_AUDIO:
+                await sentence_queue.put(None)
+                return
+
+            else:
+                audio_buffer.extend(message)
+
+    except asyncio.CancelledError:
+        print("Conversation_reader: CANCELLED")
+        raise
+    finally:
+        audio_buffer.clear()
+        print("Conversation_reader: STOP (cleanup done)")
 
 
 async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_audio: asyncio.Event):
@@ -47,9 +54,10 @@ async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_a
 
     try:
         while True:
-            msg = await ws.recv()  # cancellable await
+            msg = await ws.recv()
+
             if msg == START_OF_CONVERSATION:
-                print("New conversation turn!")
+                print("Conversation turn changed:")
                 await clear_previous_audio(sentence_queue)
                 audio_buffer = bytearray()
 
@@ -59,10 +67,8 @@ async def start_conversation_reader(ws, sentence_queue: asyncio.Queue, hearing_a
                 try:
                     await inner
                 finally:
-                    # If this coroutine is cancelled while awaiting, explicitly close out the inner coroutine.
-                    if not inner.cr_await is None:
-                        inner.close()
-                        print("Conversation_reader was forcibly closed by start_conversation_reader")
+                    # Close the inner coroutine during cancellation
+                    inner.close()
 
     except asyncio.CancelledError:
         print("2.Start conversation reader was cancelled..")
